@@ -57,6 +57,8 @@ type ItemReply struct {
 	ItemID       string
 	CookieID     string
 	ReplyContent string
+	// ReplyOnce 为真时，同一会话对该商品最多只投递一次指定商品回复。
+	ReplyOnce bool
 }
 
 // Keywords 关键字操作。
@@ -332,10 +334,12 @@ func (i *ItemReplies) Get(ctx context.Context, cookieID, itemID string) (*ItemRe
 	var ir ItemReply
 	// content 用于本次流程后续判断的内容
 	var content sql.NullString
+	// replyOnce 保存 reply_once 列的整数表示，兼容 SQLite/MySQL/Postgres 三种布尔存储。
+	var replyOnce int
 	// err 用于本次流程后续判断的err
 	err := i.DB.QueryRowContext(ctx,
-		`SELECT item_id, cookie_id, reply_content FROM item_replay WHERE cookie_id=? AND item_id=?`,
-		cookieID, itemID).Scan(&ir.ItemID, &ir.CookieID, &content)
+		`SELECT item_id, cookie_id, reply_content, reply_once FROM item_replay WHERE cookie_id=? AND item_id=?`,
+		cookieID, itemID).Scan(&ir.ItemID, &ir.CookieID, &content, &replyOnce)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -343,5 +347,28 @@ func (i *ItemReplies) Get(ctx context.Context, cookieID, itemID string) (*ItemRe
 		return nil, err
 	}
 	ir.ReplyContent = content.String
+	ir.ReplyOnce = replyOnce != 0
 	return &ir, nil
+}
+
+// ClaimOnce 原子领取某会话某商品的一次指定商品回复投递机会。
+// 返回 true 表示本次领取成功、应当发送；返回 false 表示该会话已经回复过该商品。
+// 依赖 item_reply_records 上的 (cookie_id,chat_id,item_id) 唯一约束，用 INSERT IGNORE /
+// ON CONFLICT DO NOTHING 让并发消息里只有一条能插入成功，从而避免重复回复。
+func (i *ItemReplies) ClaimOnce(ctx context.Context, cookieID, chatID, itemID string) (bool, error) {
+	// query 按方言拼接忽略冲突的插入语句。
+	query := dialectInsertIgnorePrefix(i.Dialect) + ` INTO item_reply_records
+		(cookie_id,chat_id,item_id,replied_at)
+		VALUES (?,?,?,CURRENT_TIMESTAMP)` + dialectInsertIgnore(i.Dialect, []string{"cookie_id", "chat_id", "item_id"})
+	// res、err 用于本次流程后续判断的res、err
+	res, err := i.DB.ExecContext(ctx, query, cookieID, chatID, itemID)
+	if err != nil {
+		return false, err
+	}
+	// affected 表示本次插入是否真正落库；冲突被忽略时为 0。
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
 }

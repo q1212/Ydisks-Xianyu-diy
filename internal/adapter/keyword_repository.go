@@ -162,12 +162,12 @@ func (r *KeywordRepository) GetItemReply(ctx context.Context, userID int64, cook
 }
 
 // SetItemReply 覆盖指定用户账号和商品的商品回复。
-func (r *KeywordRepository) SetItemReply(ctx context.Context, userID int64, cookieID, itemID, content string) error {
+func (r *KeywordRepository) SetItemReply(ctx context.Context, userID int64, cookieID, itemID, content string, replyOnce bool) error {
 	// err 表示账号归属校验失败。
 	if err := r.authorize(ctx, userID, cookieID); err != nil {
 		return err
 	}
-	return r.store.ItemReps.Set(ctx, cookieID, itemID, content)
+	return r.store.ItemReps.Set(ctx, cookieID, itemID, content, replyOnce)
 }
 
 // DeleteItemReply 删除指定用户账号和商品的商品回复。
@@ -228,7 +228,7 @@ func keywordModel(row db.KeywordRow) keywordsapp.Keyword {
 
 // itemReplyModel 将数据库商品回复行转换为应用模型。
 func itemReplyModel(row db.ItemReply) keywordsapp.ItemReply {
-	return keywordsapp.ItemReply{ItemID: row.ItemID, CookieID: row.CookieID, ReplyContent: row.ReplyContent}
+	return keywordsapp.ItemReply{ItemID: row.ItemID, CookieID: row.CookieID, ReplyContent: row.ReplyContent, ReplyOnce: row.ReplyOnce}
 }
 
 var _ keywordsapp.Repository = (*KeywordRepository)(nil)

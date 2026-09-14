@@ -9,6 +9,7 @@ Card,
 DefaultReply,
 DefaultReplyResponse,
 Item,
+ItemReplyResponse,
 DeliveryTemplate,
 DeliveryTemplateBinding,
 KeywordTypedResponse,
@@ -530,4 +531,44 @@ export const deleteDefaultReply = async (cookieId: string): Promise<OperationRes
 // clearDefaultReplyRecords 清理默认回复记录。
 export const clearDefaultReplyRecords = async (cookieId: string): Promise<OperationResponse> => {
 	return runContractRequest(/* signal 控制默认回复记录清理请求的取消和超时。 */ signal => contractClient.POST('/api/v1/default-replies/{cid}/clear-records', { params: { path: { cid: cookieId } }, body: {} as never, signal }));
+};
+
+// Item Reply
+// getItemReplies 读取当前用户全部账号的指定商品回复。
+export const getItemReplies = async (): Promise<ItemReplyResponse[]> => {
+	// response 是兼容数组、data 包裹和 items 包裹的商品回复响应。
+	const response = await runContractRequest(/* signal 控制指定商品回复列表读取的取消和超时。 */ signal => contractClient.GET('/api/v1/reply-rules/items', { signal })) as unknown;
+	return collectionFrom<ItemReplyResponse>(response, ['data', 'items', 'replies']).map(/* row 是服务端返回的单条商品回复。 */ row => ({
+		item_id: row.item_id || '',
+		cookie_id: row.cookie_id || '',
+		reply_content: row.reply_content || '',
+		reply_once: row.reply_once || false
+	}));
+};
+
+// getItemReply 读取指定账号和商品的商品回复。
+export const getItemReply = async (cookieId: string, itemId: string): Promise<ItemReplyResponse> => {
+	// response 是兼容直接对象和 data 包裹的商品回复响应。
+	const response = await runContractRequest(/* signal 控制指定商品回复读取的取消和超时。 */ signal => contractClient.GET('/api/v1/reply-rules/items/{cookie_id}/{item_id}', { params: { path: { cookie_id: cookieId, item_id: itemId } }, signal })) as unknown;
+	// result 是归一后的商品回复对象，缺失字段回退到入参标识。
+	const result = objectFrom<Partial<ItemReplyResponse>>(response, ['data', 'result']) || {};
+	return {
+		item_id: result.item_id || itemId,
+		cookie_id: result.cookie_id || cookieId,
+		reply_content: result.reply_content || '',
+		reply_once: result.reply_once || false
+	};
+};
+
+// updateItemReply 覆盖指定账号和商品的商品回复。
+export const updateItemReply = async (cookieId: string, itemId: string, data: { /** 回复正文。 */ reply_content: string; /** 是否每个会话只回一次。 */ reply_once: boolean }): Promise<OperationResponse> => {
+	return runContractRequest(/* signal 控制指定商品回复更新请求的取消和超时。 */ signal => contractClient.PUT('/api/v1/reply-rules/items/{cookie_id}/{item_id}', { params: { path: { cookie_id: cookieId, item_id: itemId } }, body: {
+		reply_content: data.reply_content || '',
+		reply_once: data.reply_once ?? false
+	} as never, signal }));
+};
+
+// deleteItemReply 删除指定账号和商品的商品回复。
+export const deleteItemReply = async (cookieId: string, itemId: string): Promise<OperationResponse> => {
+	return runContractRequest(/* signal 控制指定商品回复删除请求的取消和超时。 */ signal => contractClient.DELETE('/api/v1/reply-rules/items/{cookie_id}/{item_id}', { params: { path: { cookie_id: cookieId, item_id: itemId } }, signal }));
 };

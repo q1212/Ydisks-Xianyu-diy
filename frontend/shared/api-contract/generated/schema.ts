@@ -2208,6 +2208,7 @@ export interface components {
             item_id?: string;
             cookie_id?: string;
             reply_content: string;
+            reply_once: boolean;
         };
         ItemReplyListResponse: components["schemas"]["ItemReplyResponse"][];
         AIReplySettingsResponse: {

@@ -53,7 +53,7 @@ func TestKeywordRepositoryCRUDMapping(t *testing.T) {
 		t.Fatal(deleteIndexErr)
 	}
 	// setErr 保存指定商品回复写入结果。
-	if setErr := repository.SetItemReply(ctx, owner.ID, "cid", "item-1", "专属回复"); setErr != nil {
+	if setErr := repository.SetItemReply(ctx, owner.ID, "cid", "item-1", "专属回复", false); setErr != nil {
 		t.Fatal(setErr)
 	}
 	// itemReply、getErr 保存指定商品回复读取结果。
@@ -105,7 +105,7 @@ func TestKeywordRepositoryRejectsCrossUserAccess(t *testing.T) {
 		t.Fatalf("跨用户读取应返回 ErrForbidden，err=%v", err)
 	}
 	// writeErr 保存跨用户写入结果。
-	writeErr := repository.SetItemReply(ctx, 1, "other-cid", "item", "reply")
+	writeErr := repository.SetItemReply(ctx, 1, "other-cid", "item", "reply", false)
 	if !errors.Is(writeErr, keywordsapp.ErrForbidden) {
 		t.Fatalf("跨用户写入应返回 ErrForbidden，err=%v", writeErr)
 	}
@@ -176,7 +176,7 @@ func TestKeywordRepositoryCoversClosedDatabaseOperations(t *testing.T) {
 			_, err := repository.GetItemReply(ctx, 1, "cid", "item")
 			return err
 		}()},
-		{name: "商品回复写入", err: repository.SetItemReply(ctx, 1, "cid", "item", "reply")},
+		{name: "商品回复写入", err: repository.SetItemReply(ctx, 1, "cid", "item", "reply", false)},
 		{name: "商品回复删除", err: repository.DeleteItemReply(ctx, 1, "cid", "item")},
 	}
 	// operation 表示当前待验证的关键词操作及其底层结果。

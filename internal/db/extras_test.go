@@ -90,7 +90,7 @@ func TestItemReplies_SetDelete(t *testing.T) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 	// Set 写入。
-	if err := s.ItemReps.Set(ctx, cid, "i1", "回复A"); err != nil {
+	if err := s.ItemReps.Set(ctx, cid, "i1", "回复A", false); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 	// got、err 用于本次流程后续判断的got、err
@@ -99,7 +99,7 @@ func TestItemReplies_SetDelete(t *testing.T) {
 		t.Fatalf("Get: %#v err=%v", got, err)
 	}
 	// 二次 Set 同 item → 覆盖（先删后插）。
-	if err := s.ItemReps.Set(ctx, cid, "i1", "回复B"); err != nil {
+	if err := s.ItemReps.Set(ctx, cid, "i1", "回复B", false); err != nil {
 		t.Fatalf("Set overwrite: %v", err)
 	}
 	got, _ = s.ItemReps.Get(ctx, cid, "i1")

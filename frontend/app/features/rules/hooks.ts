@@ -6,6 +6,7 @@ AutomationTriggerType,
   DefaultReply,
   DeliveryTemplate,
 Item,
+ItemReplyResponse,
 ReplyRule,
 ShippingRule,
 } from './api';
@@ -15,6 +16,7 @@ getAutomationIssues,
 getCards,
   getDefaultReplies,
   getDeliveryTemplates,
+getItemReplies,
 getItems,
 getReplyRules,
 getShippingRulesPage,
@@ -40,6 +42,8 @@ export const useRulesData = (options: RulesDataOptions): RulesDataResult => {
   const [replyRules, setReplyRules] = useState<ReplyRule[]>([]);
   // defaultReplies 保存所有账号的默认回复配置。
   const [defaultReplies, setDefaultReplies] = useState<Record<string, DefaultReply>>({});
+  // itemReplies 保存所有账号的指定商品回复配置。
+  const [itemReplies, setItemReplies] = useState<ItemReplyResponse[]>([]);
   // accounts 保存规则筛选和编辑器使用的账号摘要。
   const [accounts, setAccounts] = useState<AccountDetail[]>([]);
   // cards 保存规则动作可选的卡密库存。
@@ -169,6 +173,15 @@ export const useRulesData = (options: RulesDataOptions): RulesDataResult => {
     [],
   );
 
+  // loadItemReplies 刷新指定商品回复配置，供保存后和切换页签时复用。
+  const loadItemReplies = useCallback(
+    // 指定商品回复加载器刷新全部账号的商品回复配置。
+    async () => {
+    setItemReplies(await getItemReplies());
+    },
+    [],
+  );
+
   // refresh 刷新账号参考数据和当前页签数据，保证新增账号能立即进入规则页选择器。
   const refresh = useCallback(
     // 页面刷新动作根据页签选择唯一的数据请求。
@@ -178,13 +191,19 @@ export const useRulesData = (options: RulesDataOptions): RulesDataResult => {
       // 刷新账号参考数据和当前页签数据，保证新增账号能立即进入选择器。
       await Promise.all([
         loadReferenceData(),
-        options.activeTab === 'automation' ? loadAutomationRules() : options.activeTab === 'reply' ? loadReplyRules() : loadDefaultReplies(),
+        options.activeTab === 'automation'
+          ? loadAutomationRules()
+          : options.activeTab === 'reply'
+            ? loadReplyRules()
+            : options.activeTab === 'item'
+              ? loadItemReplies()
+              : loadDefaultReplies(),
       ]);
     } finally {
       setLoading(false);
     }
     },
-    [loadAutomationRules, loadDefaultReplies, loadReferenceData, loadReplyRules, options.activeTab],
+    [loadAutomationRules, loadDefaultReplies, loadItemReplies, loadReferenceData, loadReplyRules, options.activeTab],
   );
 
   // result 汇总 Hook 的状态与动作，保持页面只消费 feature 边界。
@@ -193,6 +212,7 @@ export const useRulesData = (options: RulesDataOptions): RulesDataResult => {
     automationIssues,
     replyRules,
     defaultReplies,
+    itemReplies,
     accounts,
     cards,
     items,
@@ -209,6 +229,7 @@ export const useRulesData = (options: RulesDataOptions): RulesDataResult => {
     loadAutomationRules,
     loadReplyRules,
     loadDefaultReplies,
+    loadItemReplies,
     refresh,
   };
   return result;

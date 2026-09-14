@@ -278,13 +278,24 @@ func (r *ReplyService) keywordResult(kw db.Keyword, m ChatMessage) *ReplyResult 
 
 // defaultReply 默认回复。移植自 get_default_reply：
 // 指定商品回复优先 → 账号默认回复（reply_once 防重复 + 变量替换）。
-// defaultReply 封装default回复业务协调。
+// 指定商品回复开启 reply_once 时，同一会话对该商品只投递一次；已经投递过或
+// 去重表暂时不可用时回落到账号默认回复，由账号默认回复自身的 reply_once 继续兜底。
 func (r *ReplyService) defaultReply(ctx context.Context, m ChatMessage) *ReplyResult {
 	// 1. 指定商品回复。
 	if m.ItemID != "" {
 		if // ir、err 用于本次流程后续判断的ir、err
 		ir, err := r.store.ItemReps.Get(ctx, r.cookieID, m.ItemID); err == nil && ir != nil && strings.TrimSpace(ir.ReplyContent) != "" {
-			return &ReplyResult{Text: formatReplyWithItem(ir.ReplyContent, m), Source: "默认"}
+			// 未开启一次性回复，或缺少会话标识无法去重时，保持原有的直接回复行为。
+			if !ir.ReplyOnce || m.ChatID == "" {
+				return &ReplyResult{Text: formatReplyWithItem(ir.ReplyContent, m), Source: "默认"}
+			}
+			// claimed 表示本会话是否首次命中该商品；领取失败只记录日志，随后回落到账号默认回复。
+			claimed, claimErr := r.store.ItemReps.ClaimOnce(ctx, r.cookieID, m.ChatID, m.ItemID)
+			if claimErr != nil {
+				r.logger.Error("领取指定商品一次性回复失败", "err", claimErr, "item", m.ItemID)
+			} else if claimed {
+				return &ReplyResult{Text: formatReplyWithItem(ir.ReplyContent, m), Source: "默认"}
+			}
 		}
 	}
 	// 2. 账号默认回复。

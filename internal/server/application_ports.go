@@ -342,7 +342,7 @@ type KeywordsPort interface {
 	DeleteByIndex(context.Context, int64, string, int) error
 	ListItemReplies(context.Context, int64) ([]keywordsapp.ItemReply, error)
 	GetItemReply(context.Context, int64, string, string) (keywordsapp.ItemReply, error)
-	SetItemReply(context.Context, int64, string, string, string) error
+	SetItemReply(context.Context, int64, string, string, string, bool) error
 	DeleteItemReply(context.Context, int64, string, string) error
 }
 

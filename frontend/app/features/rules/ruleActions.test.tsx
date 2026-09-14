@@ -55,7 +55,7 @@ const useRuleActionsHarness = () => {
   // selectedAccountId 保存测试中的当前账号。
   const [selectedAccountId, setSelectedAccountId] = useState('account-1');
   // activeTab 保存测试中的当前页签。
-  const [, setActiveTab] = useState<'automation' | 'reply' | 'default'>('automation');
+  const [, setActiveTab] = useState<'automation' | 'reply' | 'default' | 'item'>('automation');
   // items 保存测试中的商品参考数据。
   const [items] = useState<Item[]>([itemFixture]);
   // automationRules 保存外部联动写入的规则列表。
@@ -74,8 +74,10 @@ const useRuleActionsHarness = () => {
   const loadReplyRules = vi.fn(async () => undefined);
   // loadDefaultReplies 是默认回复刷新替身。
   const loadDefaultReplies = vi.fn(async () => undefined);
+  // loadItemReplies 是指定商品回复刷新替身。
+  const loadItemReplies = vi.fn(async () => undefined);
   // options 是规则动作 Hook 的完整依赖。
-  const options: RuleActionsOptions = { selectedAccountId, setSelectedAccountId, setActiveTab, items, setAutomationRules, setCards, setItems: /* setItemsAction 写入外部联动商品列表。 */ linkedItems => setItems(linkedItems), setLoading, loadAutomationRules, loadReferenceData, loadReplyRules, loadDefaultReplies };
+  const options: RuleActionsOptions = { selectedAccountId, setSelectedAccountId, setActiveTab, items, setAutomationRules, setCards, setItems: /* setItemsAction 写入外部联动商品列表。 */ linkedItems => setItems(linkedItems), setLoading, loadAutomationRules, loadReferenceData, loadReplyRules, loadDefaultReplies, loadItemReplies };
   return useRuleActions(options);
 };
 

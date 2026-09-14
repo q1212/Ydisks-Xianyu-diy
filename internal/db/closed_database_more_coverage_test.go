@@ -41,7 +41,7 @@ func TestClosedDatabaseCoversCoreRepositoryErrors(t *testing.T) {
 		}(),
 		store.Cards.RestoreBatchData(ctx, 1, "card-content"),
 		store.Items.Delete(ctx, "cid", "item"),
-		store.ItemReps.Set(ctx, "cid", "item", "reply"),
+		store.ItemReps.Set(ctx, "cid", "item", "reply", false),
 		store.Keywords.UpdateByID(ctx, KeywordRow{ID: 1, CookieID: "cid", Keyword: "keyword", Reply: "reply"}),
 		store.Notifications.SetBindings(ctx, "cid", []int64{1}),
 		func() error {

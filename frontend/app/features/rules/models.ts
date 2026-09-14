@@ -476,6 +476,8 @@ export interface ItemReplyResponse {
   cookie_id?: string;
   /** 指定商品的回复内容。 */
   reply_content: string;
+  /** 该商品在同一会话是否只回复一次。 */
+  reply_once: boolean;
 }
 
 /** 默认回复查询响应。 */

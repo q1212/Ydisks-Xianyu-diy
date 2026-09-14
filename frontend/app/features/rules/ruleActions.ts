@@ -2,20 +2,23 @@ import { useCallback,useEffect,useMemo,useState,type Dispatch,type SetStateActio
 import {
 clearDefaultReplyRecords,
 deleteDefaultReply,
+deleteItemReply,
 deleteReplyRule,
 deleteShippingRule,
 getCards,
 getDefaultReply,
+getItemReply,
 getItems,
 getShippingRules,
 resolveAutomationRun,
 resolveDeferredAutomationTask,
 updateDefaultReply,
+updateItemReply,
 updateReplyRule,
 updateShippingRule,
 } from './api';
 import { finishRuleSubmission,idleRuleSubmitState,startRuleSubmission,type RuleSubmitState } from './interactionState';
-import type { AutomationTriggerType,Card,DefaultReplyForm,DeliveryTemplate,Item,ReplyRule,RulesProps,RulesTab,ShippingRule,ShippingVariant } from './types';
+import type { AutomationTriggerType,Card,DefaultReplyForm,DeliveryTemplate,Item,ItemReplyForm,ReplyRule,RulesProps,RulesTab,ShippingRule,ShippingVariant } from './types';
 import { adjustPriceTarget,boolFlag,buildAdjustPriceConfig,buildReviewConfig,cardActionsForTrigger,defaultRuleName,emptyVariant,hasCompleteTemplateBindings,isValidAdjustPrice,parseJSONObject,shouldReplaceGeneratedName,triggerMeta,withAllItemsConfirmation } from './utils';
 
 // RuleActionsOptions 描述规则动作协调器依赖的页面数据、刷新函数和外部联动目标。
@@ -46,6 +49,8 @@ export interface RuleActionsOptions {
   loadReplyRules: () => Promise<void>;
   // loadDefaultReplies 刷新账号默认回复。
   loadDefaultReplies: () => Promise<void>;
+  // loadItemReplies 刷新全部账号的指定商品回复。
+  loadItemReplies: () => Promise<void>;
   // initialDeliveryTarget 保存商品页跳转到规则页的目标。
   initialDeliveryTarget?: RulesProps['initialDeliveryTarget'];
   // onDeliveryTargetHandled 通知父页面外部跳转已完成。
@@ -138,6 +143,22 @@ export interface RuleActionsState {
   handleDeleteDefaultReply: (cookieID: string) => Promise<void>;
   // handleClearDefaultReplyRecords 清空指定账号的默认回复记录。
   handleClearDefaultReplyRecords: (cookieID: string) => Promise<void>;
+  // showItemModal 表示指定商品回复弹窗是否打开。
+  showItemModal: boolean;
+  // setShowItemModal 更新指定商品回复弹窗展示状态。
+  setShowItemModal: Dispatch<SetStateAction<boolean>>;
+  // itemForm 保存当前指定商品回复草稿。
+  itemForm: ItemReplyForm;
+  // setItemForm 更新指定商品回复草稿。
+  setItemForm: Dispatch<SetStateAction<ItemReplyForm>>;
+  // itemReplySubmitState 保存指定商品回复提交状态。
+  itemReplySubmitState: RuleSubmitState;
+  // openItemReplyModal 打开指定账号和商品的回复弹窗。
+  openItemReplyModal: (cookieID?: string, itemID?: string) => Promise<void>;
+  // handleSaveItemReply 保存当前指定商品回复配置。
+  handleSaveItemReply: () => Promise<void>;
+  // handleDeleteItemReply 删除指定账号和商品的回复配置。
+  handleDeleteItemReply: (cookieID: string, itemID: string) => Promise<void>;
 }
 
 // useRuleActions 集中管理规则页三类规则的编辑、保存、删除和异常恢复动作。
@@ -155,6 +176,7 @@ export const useRuleActions = ({
   loadReferenceData,
   loadReplyRules,
   loadDefaultReplies,
+  loadItemReplies,
   initialDeliveryTarget,
   onDeliveryTargetHandled,
 }: RuleActionsOptions): RuleActionsState => {
@@ -176,6 +198,12 @@ export const useRuleActions = ({
   const [editingReplyRule, setEditingReplyRule] = useState<Partial<ReplyRule> | null>(null);
   // defaultForm 保存当前默认回复草稿。
   const [defaultForm, setDefaultForm] = useState<DefaultReplyForm>({ cookie_id: '', enabled: false, reply_content: '', reply_once: false, reply_image_url: '' });
+  // showItemModal 表示指定商品回复弹窗是否打开。
+  const [showItemModal, setShowItemModal] = useState(false);
+  // itemReplySubmitState 保存指定商品回复提交状态。
+  const [itemReplySubmitState, setItemReplySubmitState] = useState<RuleSubmitState>(idleRuleSubmitState);
+  // itemForm 保存当前指定商品回复草稿。
+  const [itemForm, setItemForm] = useState<ItemReplyForm>({ cookie_id: '', item_id: '', reply_content: '', reply_once: false });
 
   // selectedRuleItem 查找当前自动化规则草稿绑定的商品。
   const selectedRuleItem = useMemo(
@@ -502,6 +530,43 @@ export const useRuleActions = ({
     try { await clearDefaultReplyRecords(cookieID); alert('清空成功'); } catch (/* error 表示默认回复记录清理异常。 */ error) { alert('清空失败：' + (error as Error).message); }
   }, []);
 
+  // openItemReplyModal 加载指定账号和商品的回复配置并打开弹窗。
+  const openItemReplyModal = useCallback(/* openItemAction 加载指定商品回复草稿。 */ async (cookieID = selectedAccountId, itemID = '') => {
+    if (!cookieID) return alert('请先选择账号');
+    // 没有商品标识时按新建处理，只回填当前账号。
+    if (!itemID) {
+      setItemForm({ cookie_id: cookieID, item_id: '', reply_content: '', reply_once: false });
+      setShowItemModal(true);
+      return;
+    }
+    try {
+      // data 保存服务端返回的指定商品回复配置。
+      const data = await getItemReply(cookieID, itemID);
+      setItemForm({ cookie_id: cookieID, item_id: itemID, reply_content: data.reply_content, reply_once: data.reply_once });
+    } catch {
+      setItemForm({ cookie_id: cookieID, item_id: itemID, reply_content: '', reply_once: false });
+    }
+    setShowItemModal(true);
+  }, [selectedAccountId]);
+
+  // handleSaveItemReply 校验并保存指定商品回复。
+  const handleSaveItemReply = useCallback(/* saveItemAction 保存指定商品回复。 */ async () => {
+    if (itemReplySubmitState.submitting) return;
+    if (!itemForm.cookie_id) return alert('请先选择账号');
+    if (!itemForm.item_id.trim()) return alert('请填写商品 ID');
+    if (!itemForm.reply_content.trim()) return alert('请填写回复内容');
+    setItemReplySubmitState(startRuleSubmission(itemReplySubmitState));
+    // succeeded 记录保存是否成功。
+    let succeeded = false;
+    try { await updateItemReply(itemForm.cookie_id, itemForm.item_id.trim(), { reply_content: itemForm.reply_content, reply_once: itemForm.reply_once }); setShowItemModal(false); await loadItemReplies(); alert('保存成功'); succeeded = true; } catch (/* error 表示指定商品回复保存异常。 */ error) { alert('保存失败：' + (error as Error).message); } finally { setItemReplySubmitState(/* current 保存指定商品回复提交状态。 */ current => finishRuleSubmission(current, succeeded)); }
+  }, [itemForm, itemReplySubmitState, loadItemReplies]);
+
+  // handleDeleteItemReply 删除指定账号和商品的回复配置。
+  const handleDeleteItemReply = useCallback(/* deleteItemAction 删除指定商品回复。 */ async (cookieID: string, itemID: string) => {
+    if (!confirm('确定删除该商品的指定回复吗？')) return;
+    try { await deleteItemReply(cookieID, itemID); await loadItemReplies(); alert('删除成功'); } catch (/* error 表示指定商品回复删除异常。 */ error) { alert('删除失败：' + (error as Error).message); }
+  }, [loadItemReplies]);
+
   return {
     showAutomationModal, setShowAutomationModal, showReplyModal, setShowReplyModal, showDefaultModal, setShowDefaultModal,
     automationSubmitState, replySubmitState, defaultReplySubmitState, editingAutomationRule, setEditingAutomationRule,
@@ -511,5 +576,7 @@ export const useRuleActions = ({
     handleDeleteAutomation, handleToggleAutomation, handleResolveRunIssue, handleResolveDeferredIssue, handleAddReplyRule,
     handleSaveReplyRule, handleDeleteReply, openDefaultReplyModal, handleSaveDefaultReply, handleDeleteDefaultReply,
     handleClearDefaultReplyRecords,
+    showItemModal, setShowItemModal, itemForm, setItemForm, itemReplySubmitState, openItemReplyModal,
+    handleSaveItemReply, handleDeleteItemReply,
   };
 };

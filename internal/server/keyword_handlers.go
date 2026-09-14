@@ -67,6 +67,8 @@ type keywordUpdateRequest struct {
 type itemReplyRequest struct {
 	// ReplyContent 是商品命中后的回复正文。
 	ReplyContent string `json:"reply_content"`
+	// ReplyOnce 表示该商品在同一会话是否只回复一次。
+	ReplyOnce bool `json:"reply_once"`
 }
 
 // mountKeywordsReal 注册关键词回复兼容路由。
@@ -360,7 +362,7 @@ func (s *Server) listItemReplies(w http.ResponseWriter, r *http.Request) {
 	result := make([]itemReplyResponse, 0, len(rows))
 	// row 是当前待映射的商品回复。
 	for _, row := range rows {
-		result = append(result, itemReplyResponse{ItemID: row.ItemID, CookieID: row.CookieID, ReplyContent: row.ReplyContent})
+		result = append(result, itemReplyResponse{ItemID: row.ItemID, CookieID: row.CookieID, ReplyContent: row.ReplyContent, ReplyOnce: row.ReplyOnce})
 	}
 	writeJSON(w, http.StatusOK, result)
 }
@@ -386,7 +388,7 @@ func (s *Server) getItemReply(w http.ResponseWriter, r *http.Request) {
 		writeKeywordError(w, err, "查询失败")
 		return
 	}
-	writeJSON(w, http.StatusOK, itemReplyResponse{ItemID: row.ItemID, CookieID: row.CookieID, ReplyContent: row.ReplyContent})
+	writeJSON(w, http.StatusOK, itemReplyResponse{ItemID: row.ItemID, CookieID: row.CookieID, ReplyContent: row.ReplyContent, ReplyOnce: row.ReplyOnce})
 }
 
 // setItemReply 覆盖指定商品回复。
@@ -408,7 +410,7 @@ func (s *Server) setItemReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// err 表示应用层写入结果。
-	if err := s.keywordApplication().SetItemReply(r.Context(), userID, cookieID, itemID, request.ReplyContent); err != nil {
+	if err := s.keywordApplication().SetItemReply(r.Context(), userID, cookieID, itemID, request.ReplyContent, request.ReplyOnce); err != nil {
 		writeKeywordError(w, err, "保存失败")
 		return
 	}

@@ -67,6 +67,7 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
     automationIssues,
     replyRules,
     defaultReplies,
+    itemReplies,
     accounts,
     cards,
     items,
@@ -83,6 +84,7 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
     loadAutomationRules,
     loadReplyRules,
     loadDefaultReplies,
+    loadItemReplies,
     refresh,
   } = rulesData;
 
@@ -101,6 +103,7 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
     loadReferenceData,
     loadReplyRules,
     loadDefaultReplies,
+    loadItemReplies,
     initialDeliveryTarget,
     onDeliveryTargetHandled,
   });
@@ -113,6 +116,7 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
     handleAutomationItemChange, updateVariant, updateAdjustPriceTarget, updateAdjustPriceNotifyText, appendDeliveryContent, handleSaveAutomationRule, handleDeleteAutomation,
     handleToggleAutomation, handleResolveRunIssue, handleResolveDeferredIssue, handleAddReplyRule, handleSaveReplyRule,
     handleDeleteReply, openDefaultReplyModal, handleSaveDefaultReply, handleDeleteDefaultReply, handleClearDefaultReplyRecords,
+    showItemModal, setShowItemModal, itemForm, setItemForm, openItemReplyModal, handleSaveItemReply, handleDeleteItemReply,
   } = ruleActions;
 
   useEffect(/* 当前回调同步 React 副作用和资源生命周期。 */ () => {
@@ -144,6 +148,12 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
   const visibleDefaultAccounts = useMemo(
     /* 当前回调处理集合中的单个元素。 */ () => accounts.filter(/* 当前回调处理集合中的单个元素。 */ account => !selectedAccountId || account.id === selectedAccountId),
     [accounts, selectedAccountId],
+  );
+
+  // visibleItemReplies 可见数据指定商品回复列表，负责当前功能中的对应处理。
+  const visibleItemReplies = useMemo(
+    /* 当前回调处理集合中的单个元素。 */ () => itemReplies.filter(/* 当前回调处理集合中的单个元素。 */ row => !selectedAccountId || row.cookie_id === selectedAccountId),
+    [itemReplies, selectedAccountId],
   );
 
   // automationPageNumbers 自动化页码Numbers，负责当前功能中的对应处理。
@@ -182,7 +192,9 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
     ? '新建自动化'
     : activeTab === 'reply'
       ? '新增关键词'
-      : '编辑默认回复';
+      : activeTab === 'item'
+        ? '新增商品回复'
+        : '编辑默认回复';
 
   return (
     <div className="min-w-0 space-y-8 animate-fade-in">
@@ -213,7 +225,7 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
             刷新
           </button>
           <button
-            onClick={activeTab === 'automation' ? /* 当前回调处理用户交互或异步状态变化。 */ () => openNewAutomationRule('order_paid') : activeTab === 'reply' ? handleAddReplyRule : /* 当前回调处理用户交互或异步状态变化。 */ () => void openDefaultReplyModal()}
+            onClick={activeTab === 'automation' ? /* 当前回调处理用户交互或异步状态变化。 */ () => openNewAutomationRule('order_paid') : activeTab === 'reply' ? handleAddReplyRule : activeTab === 'item' ? /* 当前回调处理用户交互或异步状态变化。 */ () => void openItemReplyModal() : /* 当前回调处理用户交互或异步状态变化。 */ () => void openDefaultReplyModal()}
             disabled={!selectedAccountId}
             className="ios-btn-primary px-5 py-3 rounded-2xl text-sm font-extrabold flex items-center justify-center gap-2 whitespace-nowrap disabled:opacity-50"
           >
@@ -228,6 +240,7 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
           { id: 'automation' as const, label: '交易自动化', icon: Zap },
           { id: 'reply' as const, label: '关键词回复', icon: MessageCircle },
           { id: 'default' as const, label: '账号默认回复', icon: Bot },
+          { id: 'item' as const, label: '商品指定回复', icon: Layers3 },
         ].map(/* 当前回调处理用户交互或异步状态变化。 */ tab => {
           // Icon 渲染Icon React 组件。
           const Icon = tab.icon;
@@ -606,6 +619,53 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
               );
             })}
             {visibleDefaultAccounts.length === 0 && <div className="text-center py-20 text-gray-400">暂无账号</div>}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'item' && (
+        <section className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+          <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-4 py-2 rounded-xl mb-5 w-fit">
+            <AlertCircle className="w-4 h-4" />
+            指定商品回复优先于账号默认回复；命中商品时先发这里的回复。
+          </div>
+          <div className="space-y-3">
+            {visibleItemReplies.map(/* 当前回调处理集合中的单个元素。 */ row => {
+              // account 是当前指定商品回复所属账号摘要，缺失时回退显示账号标识。
+              const account = accounts.find(/* 当前回调查找匹配的账号摘要。 */ candidate => candidate.id === row.cookie_id);
+              return (
+                <div key={`${row.cookie_id}-${row.item_id}`} className="flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl border border-gray-100 bg-surface-subtle hover:bg-white hover:shadow-lg transition-all gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-purple-600 text-white">
+                      <Layers3 className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="font-bold text-gray-900 text-lg truncate">{account ? accountLabel(account) : row.cookie_id}</h3>
+                        <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-600">商品 {row.item_id}</span>
+                        {row.reply_once && (
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700">只回复一次</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 line-clamp-2">{row.reply_content || '未配置回复内容'}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 border-t md:border-t-0 md:border-l border-gray-200 pt-4 md:pt-0 md:pl-6">
+                    <button
+                      onClick={/* 当前回调处理用户交互或异步状态变化。 */ () => void openItemReplyModal(row.cookie_id, row.item_id || '')}
+                      className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-colors"
+                      title="编辑"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button onClick={/* 当前回调处理用户交互或异步状态变化。 */ () => void handleDeleteItemReply(row.cookie_id || '', row.item_id || '')} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="删除">
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {visibleItemReplies.length === 0 && <div className="text-center py-20 text-gray-400">暂无指定商品回复</div>}
           </div>
         </section>
       )}
@@ -1231,6 +1291,95 @@ const Rules: React.FC<RulesProps> = ({ initialDeliveryTarget, onDeliveryTargetHa
                 >
                   <Save className="w-4 h-4" />
                   保存默认回复
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showItemModal && createPortal(
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <h3 className="text-2xl font-extrabold text-gray-900">指定商品回复</h3>
+                  <p className="text-sm text-gray-500 mt-1">命中该商品时优先使用；未配置时回落到账号默认回复。</p>
+                </div>
+                <button
+                  onClick={/* 当前回调处理用户交互或异步状态变化。 */ () => setShowItemModal(false)}
+                  className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                  title="关闭"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            <div className="modal-body space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">闲鱼账号</label>
+                <select
+                  value={itemForm.cookie_id}
+                  onChange={/* 当前回调处理用户交互或异步状态变化。 */ event => setItemForm({ ...itemForm, cookie_id: event.target.value })}
+                  className="w-full ios-input px-4 py-3 rounded-xl"
+                >
+                  <option value="">选择账号</option>
+                  {accounts.map(/* 当前回调处理集合中的单个元素。 */ account => (
+                    <option key={account.id} value={account.id}>{accountLabel(account)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">商品 ID</label>
+                <input
+                  type="text"
+                  value={itemForm.item_id}
+                  onChange={/* 当前回调处理用户交互或异步状态变化。 */ event => setItemForm({ ...itemForm, item_id: event.target.value })}
+                  placeholder="填写闲鱼商品 ID"
+                  className="w-full ios-input px-4 py-3 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">回复内容</label>
+                <textarea
+                  value={itemForm.reply_content}
+                  onChange={/* 当前回调处理用户交互或异步状态变化。 */ event => setItemForm({ ...itemForm, reply_content: event.target.value })}
+                  placeholder="输入该商品的回复内容"
+                  className="w-full ios-input px-4 py-3 rounded-xl h-32 resize-none"
+                />
+              </div>
+
+              <label className="flex items-center justify-between p-4 bg-gray-50 rounded-xl text-sm font-bold text-gray-800">
+                <span>
+                  只回复一次
+                  <span className="block text-xs text-gray-500 font-medium mt-1">同一会话对该商品只发送一次回复</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={itemForm.reply_once}
+                  onChange={/* 当前回调处理用户交互或异步状态变化。 */ event => setItemForm({ ...itemForm, reply_once: event.target.checked })}
+                  className="w-4 h-4 rounded"
+                />
+              </label>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={/* 当前回调处理用户交互或异步状态变化。 */ () => setShowItemModal(false)}
+                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveItemReply}
+                  className="flex-1 ios-btn-primary px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  保存商品回复
                 </button>
               </div>
             </div>

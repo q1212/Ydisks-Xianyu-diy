@@ -7,6 +7,7 @@ AccountDetail,
   DefaultReply,
   DeliveryTemplate,
 Item,
+ItemReplyResponse,
 ReplyRule,
 ShippingRule,
 ShippingVariant,
@@ -22,13 +23,14 @@ AccountDetail,
   DefaultReply,
   DeliveryTemplate,
 Item,
+ItemReplyResponse,
 ReplyRule,
 ShippingRule,
 ShippingVariant
 } from './api';
 
-// RulesTab 表示规则页面的三个业务页签。
-export type RulesTab = 'automation' | 'reply' | 'default';
+// RulesTab 表示规则页面的四个业务页签。
+export type RulesTab = 'automation' | 'reply' | 'default' | 'item';
 
 // RulesProps 描述规则页面从父级接收的联动参数。
 export interface RulesProps {
@@ -57,6 +59,18 @@ export interface DefaultReplyForm {
   reply_once: boolean;
   // reply_image_url 表示可选的默认图片地址。
   reply_image_url: string;
+}
+
+// ItemReplyForm 表示指定商品回复弹窗的可编辑字段。
+export interface ItemReplyForm {
+  // cookie_id 表示回复所属账号。
+  cookie_id: string;
+  // item_id 表示回复生效的商品标识。
+  item_id: string;
+  // reply_content 表示商品命中后的回复正文。
+  reply_content: string;
+  // reply_once 表示该商品在同一会话是否只回复一次。
+  reply_once: boolean;
 }
 
 // TriggerMeta 描述自动化触发类型在页面中的展示元数据。
@@ -95,6 +109,8 @@ export interface RulesReferenceData {
   deliveryTemplates: DeliveryTemplate[];
   // defaultReplies 是按账号索引的默认回复配置。
   defaultReplies: Record<string, DefaultReply>;
+  // itemReplies 是按商品配置的指定商品回复列表。
+  itemReplies: ItemReplyResponse[];
 }
 
 // RulesDataSet 保存规则页服务端数据和分页元数据。
@@ -155,6 +171,8 @@ export interface RulesDataResult extends RulesDataSet {
   loadReplyRules: () => Promise<void>;
   // loadDefaultReplies 加载所有账号的默认回复。
   loadDefaultReplies: () => Promise<void>;
+  // loadItemReplies 加载全部账号的指定商品回复。
+  loadItemReplies: () => Promise<void>;
   // refresh 根据当前页签刷新对应的服务端数据。
   refresh: () => Promise<void>;
 }

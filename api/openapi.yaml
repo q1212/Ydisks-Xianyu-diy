@@ -7485,11 +7485,12 @@ components:
       items: {$ref: '#/components/schemas/DefaultReplyResponse'}
     ItemReplyResponse:
       type: object
-      required: [reply_content]
+      required: [reply_content, reply_once]
       properties:
         item_id: {type: string}
         cookie_id: {type: string}
         reply_content: {type: string}
+        reply_once: {type: boolean}
     ItemReplyListResponse:
       type: array
       items: {$ref: '#/components/schemas/ItemReplyResponse'}

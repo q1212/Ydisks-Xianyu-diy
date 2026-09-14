@@ -76,7 +76,7 @@ func (f *keywordRepositoryFake) GetItemReply(context.Context, int64, string, str
 }
 
 // SetItemReply 实现测试仓储的商品回复写入端口。
-func (f *keywordRepositoryFake) SetItemReply(context.Context, int64, string, string, string) error {
+func (f *keywordRepositoryFake) SetItemReply(context.Context, int64, string, string, string, bool) error {
 	return f.itemErr
 }
 
@@ -194,11 +194,11 @@ func TestServiceItemReplyValidationAndPropagation(t *testing.T) {
 	// service 是待验证的关键词应用服务。
 	service := NewService(repository)
 	// err 表示空商品标识返回的校验错误。
-	if err := service.SetItemReply(context.Background(), 1, "account", "", "reply"); err == nil {
+	if err := service.SetItemReply(context.Background(), 1, "account", "", "reply", false); err == nil {
 		t.Fatal("空商品 ID 应被拒绝")
 	}
 	// err 表示商品回复持久化阶段返回的基础设施错误。
-	if err := service.SetItemReply(context.Background(), 1, "account", "item", "reply"); !errors.Is(err, backendErr) {
+	if err := service.SetItemReply(context.Background(), 1, "account", "item", "reply", false); !errors.Is(err, backendErr) {
 		t.Fatalf("基础设施错误未透传: %v", err)
 	}
 }
@@ -244,7 +244,7 @@ func TestServiceDelegatesKeywordAndItemReplyOperations(t *testing.T) {
 		t.Fatalf("GetItemReply result=%+v err=%v", itemReply, getItemErr)
 	}
 	// setItemErr、deleteItemErr 保存指定商品回复写入和删除结果。
-	setItemErr := service.SetItemReply(ctx, 1, "account-1", "item-1", "更新")
+	setItemErr := service.SetItemReply(ctx, 1, "account-1", "item-1", "更新", false)
 	// deleteItemErr 保存指定商品回复删除结果。
 	deleteItemErr := service.DeleteItemReply(ctx, 1, "account-1", "item-1")
 	if setItemErr != nil || deleteItemErr != nil {
@@ -274,7 +274,7 @@ func TestServiceRejectsInvalidOperationIdentifiers(t *testing.T) {
 			_, err := service.GetItemReply(ctx, 1, "account", "")
 			return err
 		}},
-		{name: "set item", call: func() error { return service.SetItemReply(ctx, 1, "account", "", "reply") }},
+		{name: "set item", call: func() error { return service.SetItemReply(ctx, 1, "account", "", "reply", false) }},
 		{name: "delete item", call: func() error { return service.DeleteItemReply(ctx, 1, "account", "") }},
 	}
 	for /* item 表示当前非法标识场景。 */ _, item := range cases {
@@ -320,7 +320,7 @@ func TestServiceRejectsInvalidUsersAcrossOperations(t *testing.T) {
 			_, err := service.GetItemReply(ctx, 0, "account", "item")
 			return err
 		}},
-		{name: "item set", call: func(service *Service) error { return service.SetItemReply(ctx, 0, "account", "item", "reply") }},
+		{name: "item set", call: func(service *Service) error { return service.SetItemReply(ctx, 0, "account", "item", "reply", false) }},
 		{name: "item delete", call: func(service *Service) error { return service.DeleteItemReply(ctx, 0, "account", "item") }},
 	}
 	for /* item 表示当前用户身份校验场景。 */ _, item := range cases {

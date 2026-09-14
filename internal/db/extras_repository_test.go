@@ -44,7 +44,7 @@ func TestExtraRepositoriesCRUD(t *testing.T) {
 	}
 
 	if // err 用于本次流程后续判断的err
-	err := store.ItemReps.Set(ctx, "acc1", "item1", "reply"); err != nil {
+	err := store.ItemReps.Set(ctx, "acc1", "item1", "reply", false); err != nil {
 		t.Fatal(err)
 	}
 	// replies 用于本次流程后续判断的回复列表

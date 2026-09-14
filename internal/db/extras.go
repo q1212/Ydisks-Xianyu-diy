@@ -153,8 +153,8 @@ func (k *Keywords) DeleteByIndex(ctx context.Context, cookieID string, index int
 
 // ItemReplies 已在 reply.go 定义 Get。补 Set/Delete。
 
-// Set 设置指定商品回复。
-func (i *ItemReplies) Set(ctx context.Context, cookieID, itemID, content string) error {
+// Set 设置指定商品回复。replyOnce 为真时该商品在同一会话只投递一次。
+func (i *ItemReplies) Set(ctx context.Context, cookieID, itemID, content string, replyOnce bool) error {
 	// tx、err 用于本次流程后续判断的tx、err
 	tx, err := i.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -167,8 +167,8 @@ func (i *ItemReplies) Set(ctx context.Context, cookieID, itemID, content string)
 	}
 	if // err 用于本次流程后续判断的err
 	_, err := tx.ExecContext(ctx,
-		`INSERT INTO item_replay (item_id, cookie_id, reply_content, updated_at)
-		 VALUES (?,?,?,CURRENT_TIMESTAMP)`, itemID, cookieID, content); err != nil {
+		`INSERT INTO item_replay (item_id, cookie_id, reply_content, reply_once, updated_at)
+		 VALUES (?,?,?,?,CURRENT_TIMESTAMP)`, itemID, cookieID, content, boolToInt(replyOnce)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -186,7 +186,7 @@ func (i *ItemReplies) Delete(ctx context.Context, cookieID, itemID string) error
 func (i *ItemReplies) AllForUser(ctx context.Context, cookieID string) ([]ItemReply, error) {
 	// rows、err 用于本次流程后续判断的rows、err
 	rows, err := i.DB.QueryContext(ctx,
-		`SELECT item_id, cookie_id, reply_content FROM item_replay WHERE cookie_id=?`, cookieID)
+		`SELECT item_id, cookie_id, reply_content, reply_once FROM item_replay WHERE cookie_id=?`, cookieID)
 	if err != nil {
 		return nil, err
 	}
@@ -196,10 +196,13 @@ func (i *ItemReplies) AllForUser(ctx context.Context, cookieID string) ([]ItemRe
 	for rows.Next() {
 		// r 用于本次流程后续判断的r
 		var r ItemReply
+		// replyOnce 保存 reply_once 列的整数表示。
+		var replyOnce int
 		if // err 用于本次流程后续判断的err
-		err := rows.Scan(&r.ItemID, &r.CookieID, &r.ReplyContent); err != nil {
+		err := rows.Scan(&r.ItemID, &r.CookieID, &r.ReplyContent, &replyOnce); err != nil {
 			return nil, err
 		}
+		r.ReplyOnce = replyOnce != 0
 		out = append(out, r)
 	}
 	return out, rows.Err()

@@ -74,6 +74,8 @@ type ItemReply struct {
 	CookieID string
 	// ReplyContent 是商品命中后的回复正文。
 	ReplyContent string
+	// ReplyOnce 为真时该商品在同一会话只投递一次。
+	ReplyOnce bool
 }
 
 // Repository 定义关键词用例所需的最小持久化能力。
@@ -95,8 +97,8 @@ type Repository interface {
 	ListItemReplies(ctx context.Context, userID int64) ([]ItemReply, error)
 	// GetItemReply 读取指定用户账号和商品的回复。
 	GetItemReply(ctx context.Context, userID int64, cookieID, itemID string) (ItemReply, error)
-	// SetItemReply 覆盖指定用户账号和商品的回复。
-	SetItemReply(ctx context.Context, userID int64, cookieID, itemID, content string) error
+	// SetItemReply 覆盖指定用户账号和商品的回复，并设置是否每个会话只回一次。
+	SetItemReply(ctx context.Context, userID int64, cookieID, itemID, content string, replyOnce bool) error
 	// DeleteItemReply 删除指定用户账号和商品的回复。
 	DeleteItemReply(ctx context.Context, userID int64, cookieID, itemID string) error
 }
@@ -218,7 +220,7 @@ func (s *Service) GetItemReply(ctx context.Context, userID int64, cookieID, item
 }
 
 // SetItemReply 校验商品标识并覆盖指定商品回复。
-func (s *Service) SetItemReply(ctx context.Context, userID int64, cookieID, itemID, content string) error {
+func (s *Service) SetItemReply(ctx context.Context, userID int64, cookieID, itemID, content string, replyOnce bool) error {
 	// err 表示服务依赖、用户身份或账号标识校验结果。
 	if err := s.validate(userID, cookieID); err != nil {
 		return err
@@ -226,7 +228,7 @@ func (s *Service) SetItemReply(ctx context.Context, userID int64, cookieID, item
 	if strings.TrimSpace(itemID) == "" {
 		return &ValidationError{Message: "商品ID不能为空"}
 	}
-	return s.repository.SetItemReply(ctx, userID, cookieID, itemID, content)
+	return s.repository.SetItemReply(ctx, userID, cookieID, itemID, content, replyOnce)
 }
 
 // DeleteItemReply 删除指定商品回复。

@@ -77,7 +77,7 @@ func (port *keywordHandlerCoveragePort) GetItemReply(context.Context, int64, str
 }
 
 // SetItemReply 返回测试预置的商品回复写入错误。
-func (port *keywordHandlerCoveragePort) SetItemReply(context.Context, int64, string, string, string) error {
+func (port *keywordHandlerCoveragePort) SetItemReply(context.Context, int64, string, string, string, bool) error {
 	return port.operationErr
 }
 

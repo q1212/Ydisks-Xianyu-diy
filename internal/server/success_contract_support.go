@@ -404,6 +404,8 @@ type itemReplyResponse struct {
 	CookieID string `json:"cookie_id,omitempty"`
 	// ReplyContent 是指定商品的回复内容。
 	ReplyContent string `json:"reply_content"`
+	// ReplyOnce 表示该商品在同一会话是否只回复一次。
+	ReplyOnce bool `json:"reply_once"`
 }
 
 // defaultReplyResponse 是默认回复接口的具名 DTO。
