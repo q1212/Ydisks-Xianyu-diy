@@ -195,7 +195,7 @@ func TestMigrate_ExistingAutomationRunsReceiveEmptyDeliveryProof(t *testing.T) {
 	}
 	// finalVersion、versionErr 验证升级已包含账号自动确认发货迁移，不能仅证明旧 delivery_proof 列存在。
 	finalVersion, versionErr := goose.GetDBVersion(rawDB)
-	if versionErr != nil || finalVersion != 49 {
+	if versionErr != nil || finalVersion != 50 {
 		t.Fatalf("final migration version=%d err=%v", finalVersion, versionErr)
 	}
 	if !tableExists(t, rawDB, "order_ownership_repairs") {
@@ -278,13 +278,13 @@ func TestMigrate_UpgradesDatabaseWithMainChatVersions(t *testing.T) {
 	if !columnExists(t, rawDB, "automation_rule_actions", "delivery_template_id") {
 		t.Fatal("automation_rule_actions should reference delivery templates")
 	}
-	// finalVersion、versionErr 验证迁移账本已推进到账号自动确认发货语义的 00049，或记录读取失败。
+	// finalVersion、versionErr 验证迁移账本已推进到账号自动确认发货语义的 00049 及后续迁移，或记录读取失败。
 	finalVersion, versionErr := goose.GetDBVersion(rawDB)
 	if versionErr != nil {
 		t.Fatalf("read final migration version: %v", versionErr)
 	}
-	if finalVersion != 49 {
-		t.Fatalf("final migration version=%d, want 49", finalVersion)
+	if finalVersion != 50 {
+		t.Fatalf("final migration version=%d, want 50", finalVersion)
 	}
 	if !columnExists(t, rawDB, "account_task_runs", "attempt_count") {
 		t.Fatal("account_task_runs should include the retry attempt counter")
