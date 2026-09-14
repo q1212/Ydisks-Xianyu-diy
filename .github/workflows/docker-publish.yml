@@ -3,6 +3,9 @@ name: 构建并发布 Docker 镜像
 on:
   push:
     branches:
+      # main 是本 fork 的定制分支：上游只监听 dev，这里补上 main，
+      # 使 push 到自己的 main 即可自动构建并发布镜像。
+      - main
       - dev
   workflow_dispatch:
   workflow_call:
