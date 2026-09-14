@@ -174,12 +174,26 @@ func (i *ItemReplies) Set(ctx context.Context, cookieID, itemID, content string,
 	return tx.Commit()
 }
 
-// Delete 删除指定商品回复。
+// Delete 删除指定商品回复，并一并清掉该账号该商品的一次性回复记录。
+// 否则重新添加同一条商品回复时，残留记录会让买家永远收不到回复。
 func (i *ItemReplies) Delete(ctx context.Context, cookieID, itemID string) error {
-	// err 用于本次流程后续判断的err
-	_, err := i.DB.ExecContext(ctx,
-		`DELETE FROM item_replay WHERE cookie_id=? AND item_id=?`, cookieID, itemID)
-	return err
+	// tx、err 用于本次流程后续判断的tx、err
+	tx, err := i.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if // err 用于本次流程后续判断的err
+	_, err := tx.ExecContext(ctx,
+		`DELETE FROM item_reply_records WHERE cookie_id=? AND item_id=?`, cookieID, itemID); err != nil {
+		return err
+	}
+	if // err 用于本次流程后续判断的err
+	_, err := tx.ExecContext(ctx,
+		`DELETE FROM item_replay WHERE cookie_id=? AND item_id=?`, cookieID, itemID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // AllForUser 取某账号所有指定商品回复。

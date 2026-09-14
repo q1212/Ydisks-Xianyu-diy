@@ -135,6 +135,7 @@ func TestDeleteUserCleansNonForeignKeyAccountData(t *testing.T) {
 	// query 表示当前遍历过程中的查询
 	for _, query := range []string{
 		`INSERT INTO item_replay (item_id,cookie_id,reply_content) VALUES ('item','delete-owned-account','secret reply')`,
+		`INSERT INTO item_reply_records (cookie_id,chat_id,item_id) VALUES ('delete-owned-account','chat-1','item')`,
 		`INSERT INTO scheduled_cookies_refresh_log (cookie_id,status) VALUES ('delete-owned-account','failed')`,
 		`INSERT INTO scheduled_login_renew_log (cookie_id,status) VALUES ('delete-owned-account','failed')`,
 		`INSERT INTO scheduled_api_cookie_renew_log (cookie_id,status) VALUES ('delete-owned-account','failed')`,
@@ -151,7 +152,7 @@ func TestDeleteUserCleansNonForeignKeyAccountData(t *testing.T) {
 	}
 	// table 表示当前遍历过程中的table
 	for _, table := range []string{
-		"cookies", "item_replay", "scheduled_cookies_refresh_log", "scheduled_login_renew_log",
+		"cookies", "item_replay", "item_reply_records", "scheduled_cookies_refresh_log", "scheduled_login_renew_log",
 		"scheduled_api_cookie_renew_log", "account_login_logs",
 	} {
 		// count 用于本次流程后续判断的数量

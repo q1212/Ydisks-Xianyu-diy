@@ -420,6 +420,7 @@ func deleteCookieTx(ctx context.Context, tx *sql.Tx, cookieID string) error {
 	// table 表示当前遍历过程中的table
 	for _, table := range []string{
 		"item_replay",
+		"item_reply_records",
 		"scheduled_cookies_refresh_log",
 		"scheduled_login_renew_log",
 		"scheduled_api_cookie_renew_log",
