@@ -98,6 +98,28 @@ describe('useNotifications', /* 当前回调处理通知渠道、SMTP 和动作�
     expect(updateSmtpMock).toHaveBeenCalledWith(expect.objectContaining({ smtp_port: 587 }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
+  test('保存被其它渠道动作顶掉后不得残留保存中状态', /* 当前回调验证保存按钮不会因代次被抢占而永久禁用。 */ async () => {
+    // releaseSave 由测试控制保存请求何时结束，用于构造「保存进行中」的窗口。
+    let releaseSave: (() => void) | null = null;
+    createChannelMock.mockImplementation(/* pendingSaveFactory 返回一个由测试手动释放的挂起请求。 */ () => new Promise(resolve => { releaseSave = /* resolveSave 结束挂起的保存请求。 */ () => resolve({ success: true, id: 9 }); }));
+    // hook 是并发保存场景的 Hook 渲染结果。
+    const hook = renderHook(/* concurrentHookFactory 创建并发保存场景的 Hook。 */ () => useNotifications(false));
+    await waitFor(/* loadingAssertion 等待渠道摘要加载完成。 */ () => expect(hook.result.current.loading).toBe(false));
+
+    await act(/* openAction 打开新建渠道表单。 */ async () => hook.result.current.openCreate());
+    await act(/* formAction 写入完整表单。 */ async () => hook.result.current.setForm({ name: '并发渠道', type: 'bark', enabled: true, config: { server_url: 'https://api.day.app', device_key: 'k' }, event_types: ['buyer_message'] }));
+    // 触发保存但不等待其完成，此时保存按钮应处于禁用状态。
+    await act(/* pendingSaveAction 启动保存并保持请求挂起。 */ async () => { void hook.result.current.handleSave(); });
+    expect(hook.result.current.saving).toBe(true);
+
+    // 另一个渠道动作会顶掉保存；必须同时清掉保存中状态，否则保存按钮永久禁用。
+    await act(/* toggleAction 顶掉进行中的保存。 */ async () => hook.result.current.handleToggleEnabled(channelFixture));
+    expect(hook.result.current.saving).toBe(false);
+
+    // 释放挂起的保存请求，避免影响后续用例。
+    await act(/* releaseAction 结束挂起的保存请求。 */ async () => { releaseSave?.(); });
+  });
+
   test('编辑邮件渠道时回显服务端保存的收件邮箱', /* 当前回调验证编辑配置异步加载不会丢失收件地址。 */ async () => {
     // emailChannel 是编辑收件邮箱回显场景使用的渠道摘要。
     const emailChannel: NotificationChannel = { id: 'email-1', name: '邮件通知', type: 'email', config: {}, enabled: true, event_types: [] };

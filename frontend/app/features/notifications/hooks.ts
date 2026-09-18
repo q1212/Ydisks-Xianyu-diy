@@ -162,6 +162,8 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
     () => {
     editorGeneration.current += 1;
     editorAbort.current?.abort();
+    // 重新打开表单必须清掉上一次可能残留的保存中状态，否则保存按钮会一直处于禁用。
+    setSaving(false);
     setEditing(null);
     setForm(emptyNotificationForm());
     setShowChannelSmtpPassword(false);
@@ -193,6 +195,8 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
           config: { to_email: editor.to_email || '', use_custom_smtp: editor.use_custom_smtp === true },
         } : initialForm);
         setShowChannelSmtpPassword(false);
+        // 表单重新开放时必须清掉上一次可能残留的保存中状态，否则保存按钮会一直处于禁用。
+        setSaving(false);
         setShowModal(true);
       } catch (error: unknown /* 编辑读取失败时仅显示可读错误，不开放缺少配置的表单。 */) {
         if (generation === editorGeneration.current && !controller.signal.aborted) showToast('error', notificationErrorMessage(error, '读取渠道配置失败'));
@@ -268,6 +272,8 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
     const generation = ++actionGeneration.current;
     // 替换动作时主动清理被取消测试的忙碌状态；旧 finally 已没有当前代次。
     setTestingId('');
+    // 本动作会顶掉正在进行的保存，必须同时清掉保存中状态，否则保存按钮会一直禁用。
+    setSaving(false);
     actionAbort.current?.abort();
     // controller 允许刷新页面时取消删除请求。
     const controller = new AbortController();
@@ -295,6 +301,8 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
     const generation = ++actionGeneration.current;
     // 替换动作时主动清理被取消测试的忙碌状态；旧 finally 已没有当前代次。
     setTestingId('');
+    // 本动作会顶掉正在进行的保存，必须同时清掉保存中状态，否则保存按钮会一直禁用。
+    setSaving(false);
     actionAbort.current?.abort();
     // controller 允许新的渠道动作取消旧请求。
     const controller = new AbortController();
@@ -325,6 +333,8 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
     setTestingId(channel.id);
     // generation 标记当前测试通知动作的代次。
     const generation = ++actionGeneration.current;
+    // 本动作会顶掉正在进行的保存，必须同时清掉保存中状态，否则保存按钮会一直禁用。
+    setSaving(false);
     actionAbort.current?.abort();
     // controller 允许新动作取消旧的测试发送。
     const controller = new AbortController();
