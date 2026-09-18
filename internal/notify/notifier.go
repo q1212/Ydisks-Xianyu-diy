@@ -201,7 +201,7 @@ func (n *Notifier) NotifyBuyerMessage(accountID, buyerName, buyerID, itemID, cha
 		Type:      EventBuyerMessage,
 		Level:     "info",
 		Title:     "收到买家新消息",
-		RawBody: fmt.Sprintf("【闲鱼消息】\n闲鱼账号: %s（我自己账号）\n发送者: %s（买家昵称）\n消息: %s",
+		RawBody: fmt.Sprintf("【闲鱼消息】\n闲鱼账号: %s\n发送者: %s\n消息: %s",
 			accountName, senderName, message),
 	}, "")
 }

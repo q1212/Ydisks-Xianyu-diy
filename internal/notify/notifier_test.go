@@ -246,6 +246,12 @@ func TestNotifyBuyerMessage_SubscribedChannel(t *testing.T) {
 			t.Errorf("通知正文缺少 %q: %s", want, gotBody)
 		}
 	}
+	// 模板不应带字段说明性批注，正文只保留纯值。
+	for _, unwanted := range []string{"我自己账号", "买家昵称"} {
+		if contains(gotBody, unwanted) {
+			t.Errorf("通知正文不应包含批注 %q: %s", unwanted, gotBody)
+		}
+	}
 }
 
 // TestNotifyBuyerMessage_RespectsSubscription 未订阅买家新消息的渠道不应收到推送。
