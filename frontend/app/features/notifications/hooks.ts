@@ -225,7 +225,13 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
     // 保存回调执行渠道校验、请求和成功刷新。
     async () => {
     // validationError 是渠道表单预检失败时的用户提示。
-    const validationError = validateNotificationForm(form);
+    let validationError = '';
+    try {
+      validationError = validateNotificationForm(form);
+    } catch (error: unknown /* 预检自身异常也必须给出可读提示，避免点击保存毫无反馈。 */) {
+      showToast('error', notificationErrorMessage(error, '表单校验失败'));
+      return;
+    }
     if (validationError) {
       showToast('error', validationError);
       return;

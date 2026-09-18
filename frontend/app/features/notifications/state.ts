@@ -102,6 +102,8 @@ export const normalizeNotificationForm = (channel: NotificationChannel, smtp: Sy
 export const validateNotificationForm = (form: NotificationForm): string => {
   // meta 是当前渠道类型的静态校验配置。
   const meta = notificationChannelTypes[form.type];
+  // 未知渠道类型必须返回可读错误：直接取 meta.fields 会抛异常，导致保存静默失败。
+  if (!meta) return `不支持的渠道类型：${form.type}`;
   // missingField 是第一个未填写的渠道必填字段。
   const missingField = meta.fields.find(
     // field 是当前渠道字段定义。
