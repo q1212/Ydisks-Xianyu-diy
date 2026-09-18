@@ -43,7 +43,25 @@ func (a *Adapter) HandleChatMessage(ctx context.Context, message engine.ChatMess
 		a.logger.Debug("实时聊天消息已入库", "account", message.AccountID, "chat_id", message.ChatID,
 			"message_key", stored.MessageKey, "message_type", stored.MessageType, "inserted", inserted)
 	}
+	// 只在消息首次入库时推送渠道通知：平台重投或历史回放不会重复提醒。
+	if err == nil && inserted {
+		a.notifyBuyerMessage(message)
+	}
 	return err
+}
+
+// notifyBuyerMessage 把首次入库的买家消息转交通知器。
+// 通知器未注入或不支持该能力时静默跳过，绝不影响聊天入库与自动回复主链路。
+func (a *Adapter) notifyBuyerMessage(message engine.ChatMessage) {
+	if a.notifier == nil {
+		return
+	}
+	// n、ok 用于本次流程后续判断的n、ok
+	n, ok := a.notifier.(notifyBuyerMessageNotifier)
+	if !ok {
+		return
+	}
+	n.NotifyBuyerMessage(message.AccountID, message.SenderName, message.SenderUserID, message.ItemID, message.ChatID, message.Text)
 }
 
 // ChatSessionRole 返回消息所属会话和商品的本地角色结论，不读取账号凭证明文。

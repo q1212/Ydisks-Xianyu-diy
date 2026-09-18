@@ -109,6 +109,12 @@ type notifyEventNotifier interface {
 	NotifyAccountEvent(cookieID, eventType, level, title, body string)
 }
 
+// notifyBuyerMessageNotifier 是通知器可选的买家新消息推送能力。
+// 使用可选接口而非扩展 notifyNotifier，使测试替身无需实现聊天通知即可继续使用。
+type notifyBuyerMessageNotifier interface {
+	NotifyBuyerMessage(accountID, buyerName, buyerID, itemID, chatID, text string)
+}
+
 // New 构造可隔离测试的 Adapter；生产进程必须使用 NewRuntimeBundle 完成不可变运行时装配。
 func New(store *db.Store, bm *browser.Manager, logger *slog.Logger) *Adapter {
 	return newAdapter(store, bm, logger, NewOrderDetailCoordinator(logger))

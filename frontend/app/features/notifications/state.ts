@@ -61,6 +61,7 @@ export const notificationEvents: NotificationEventMeta[] = [
   { value: 'account_recovered', label: '恢复通知', description: '自动恢复成功并重新在线' },
   { value: 'account_disabled', label: '禁用通知', description: '连续失败、账密错误等导致账号停用' },
   { value: 'security_verification', label: '风控验证', description: '滑块、人脸、扫码验证等安全校验' },
+  { value: 'buyer_message', label: '买家新消息', description: '收到买家发来的新聊天消息时推送；同一买家多次发言会分别提醒' },
   { value: 'automation_order_created', label: '拍下改价', description: '买家拍下订单后，自动改价任务的成功或失败结果' },
   { value: 'automation_order_paid', label: '付款发货', description: '买家付款后，自动发货任务的成功或失败结果' },
   { value: 'automation_buyer_reviewed', label: '评价赠品', description: '买家评价后，评价赠品任务的成功或失败结果' },

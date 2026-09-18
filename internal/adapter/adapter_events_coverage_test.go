@@ -141,6 +141,51 @@ func TestAdapterChatEventHooksPersistNonSelfMessages(t *testing.T) {
 	}
 }
 
+// buyerMessageRecorder 记录适配器转交的买家消息通知，用于验证推送时机。
+type buyerMessageRecorder struct {
+	// texts 保存每次通知携带的消息正文。
+	texts []string
+}
+
+// NotifyAccountAlert 满足基础通知接口，测试中不产生外部副作用。
+func (r *buyerMessageRecorder) NotifyAccountAlert(string, string, string, string) {}
+
+// NotifyBuyerMessage 记录一次买家新消息通知。
+func (r *buyerMessageRecorder) NotifyBuyerMessage(_, _, _, _, _, text string) {
+	r.texts = append(r.texts, text)
+}
+
+// TestAdapterNotifiesBuyerMessageOncePerInsert 验证买家消息只在首次入库时推送一次通知。
+func TestAdapterNotifiesBuyerMessageOncePerInsert(t *testing.T) {
+	// store、cleanup 保存隔离的 SQLite 存储和关闭责任。
+	store, cleanup := newAdapterTestStore(t)
+	defer cleanup()
+	// ctx 是本测试聊天事件处理共用的上下文。
+	ctx := context.Background()
+	// adapter 保存注入聊天服务与通知器后的事件适配器。
+	adapter := New(store, nil, nil)
+	adapter.SetChatService(chat.New(store))
+	// recorder 记录通知调用次数与内容。
+	recorder := &buyerMessageRecorder{}
+	adapter.SetNotifier(recorder)
+
+	// message 是同一条买家消息，用于验证平台重投不会重复提醒。
+	message := engine.ChatMessage{AccountID: "cid", CookieStr: "unb=me", ChatID: "chat-notify", SenderUserID: "buyer", SenderName: "买家", MessageID: "notify-1", Text: "在吗", Raw: map[string]any{"kind": "text"}}
+	if err := adapter.HandleChatMessage(ctx, message); err != nil {
+		t.Fatal(err)
+	}
+	// 同一条消息再次到达（平台重投）不应重复提醒。
+	if err := adapter.HandleChatMessage(ctx, message); err != nil {
+		t.Fatal(err)
+	}
+	if len(recorder.texts) != 1 {
+		t.Fatalf("买家新消息应只通知一次，实际 %d 次", len(recorder.texts))
+	}
+	if recorder.texts[0] != "在吗" {
+		t.Errorf("通知正文异常: %q", recorder.texts[0])
+	}
+}
+
 // TestAdapterSettersAndCookieSnapshotHelpers 验证兼容 setter 和凭证快照纯判断均可安全执行。
 func TestAdapterSettersAndCookieSnapshotHelpers(t *testing.T) {
 	// store、cleanup 保存测试适配器依赖及关闭责任。

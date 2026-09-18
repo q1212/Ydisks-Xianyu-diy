@@ -43,6 +43,8 @@ const (
 	// EventManualInterventionRequired 表示自动化已停止且必须由用户人工判断或处理。
 	EventManualInterventionRequired = "manual_intervention_required"
 	EventSystemError                = "system_error"
+	// EventBuyerMessage 表示收到买家发来的新聊天消息，供用户订阅后转发到通知渠道。
+	EventBuyerMessage = "buyer_message"
 	// legacyNotifierOperationTimeout 是兼容无 Context 通知与等待入口的最长数据库或网络预算。
 	legacyNotifierOperationTimeout = 10 * time.Second
 )
@@ -163,6 +165,36 @@ func (n *Notifier) NotifyDelivery(accountID, buyerName, buyerID, itemID, message
 			"商品ID": itemID,
 			"聊天ID": fallback(chatID, "未知"),
 			"结果":   message,
+		},
+	})
+}
+
+// NotifyBuyerMessage 发送买家新消息通知。
+// accountID 为 cookie_id。只推送给订阅了 buyer_message 的已启用渠道。
+// 调用方应只在消息确实是首次入库时调用，避免平台重投或回放造成重复提醒。
+func (n *Notifier) NotifyBuyerMessage(accountID, buyerName, buyerID, itemID, chatID, text string) {
+	if n == nil {
+		return
+	}
+	// 图片等非文本消息正文为空，用占位文案保证提醒仍然可见，不因空正文而漏报。
+	body := strings.TrimSpace(text)
+	if body == "" {
+		body = "[非文本消息]"
+	}
+	// notificationCtx、notificationCancel 为兼容入口限制 outbox 入队预算，避免聊天链路产生无主数据库操作。
+	notificationCtx, notificationCancel := context.WithTimeout(context.Background(), legacyNotifierOperationTimeout)
+	defer notificationCancel()
+	n.NotifyEvent(notificationCtx, NotificationEvent{
+		AccountID: accountID,
+		Type:      EventBuyerMessage,
+		Level:     "info",
+		Title:     "收到买家新消息",
+		Body:      body,
+		Fields: map[string]string{
+			"买家":   fmt.Sprintf("%s (ID: %s)", buyerName, buyerID),
+			"商品ID": itemID,
+			"聊天ID": fallback(chatID, "未知"),
+			"消息":   body,
 		},
 	})
 }

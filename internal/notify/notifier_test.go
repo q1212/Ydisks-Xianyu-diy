@@ -203,6 +203,117 @@ func TestNotifyDelivery_WithChannel(t *testing.T) {
 	}
 }
 
+// TestNotifyBuyerMessage_SubscribedChannel 订阅买家新消息后推送到渠道。
+func TestNotifyBuyerMessage_SubscribedChannel(t *testing.T) {
+	// s、cleanup 用于本次流程后续判断的s、cleanup
+	s, cleanup := newNotifyStore(t)
+	defer cleanup()
+	// ctx 用于本次流程后续判断的ctx
+	ctx := context.Background()
+
+	// gotBody 保存 webhook 收到的通知正文。
+	var gotBody string
+	// srv 用于本次流程后续判断的srv
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// b 用于本次流程后续判断的b
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	// 插入只订阅 buyer_message 的 webhook 渠道，并绑定到账号 cid。
+	res, _ := s.DB.ExecContext(ctx,
+		`INSERT INTO notification_channels (name,type,config,enabled,user_id,event_types) VALUES ('测试','webhook',?,1,1,?)`,
+		`{"webhook_url":"`+srv.URL+`"}`, `["buyer_message"]`)
+	// chID 用于本次流程后续判断的chID
+	chID, _ := res.LastInsertId()
+	s.DB.ExecContext(ctx,
+		`INSERT INTO message_notifications (cookie_id,channel_id,enabled) VALUES ('cid',?,1)`, chID)
+
+	// n 用于本次流程后续判断的n
+	n := New("cid", s, nil)
+	n.NotifyBuyerMessage("cid", "买家甲", "b1", "item1", "chat1", "在吗？")
+	if gotBody == "" {
+		t.Fatal("订阅买家新消息后应发送通知")
+	}
+	if !contains(gotBody, "买家甲") || !contains(gotBody, "在吗") {
+		t.Errorf("通知正文异常: %s", gotBody)
+	}
+}
+
+// TestNotifyBuyerMessage_RespectsSubscription 未订阅买家新消息的渠道不应收到推送。
+func TestNotifyBuyerMessage_RespectsSubscription(t *testing.T) {
+	// s、cleanup 用于本次流程后续判断的s、cleanup
+	s, cleanup := newNotifyStore(t)
+	defer cleanup()
+	// ctx 用于本次流程后续判断的ctx
+	ctx := context.Background()
+
+	// sent 标记 webhook 是否被调用。
+	sent := false
+	// srv 用于本次流程后续判断的srv
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = true
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	// 该渠道只订阅系统错误，不应接收买家消息。
+	res, _ := s.DB.ExecContext(ctx,
+		`INSERT INTO notification_channels (name,type,config,enabled,user_id,event_types) VALUES ('测试','webhook',?,1,1,?)`,
+		`{"webhook_url":"`+srv.URL+`"}`, `["system_error"]`)
+	// chID 用于本次流程后续判断的chID
+	chID, _ := res.LastInsertId()
+	s.DB.ExecContext(ctx,
+		`INSERT INTO message_notifications (cookie_id,channel_id,enabled) VALUES ('cid',?,1)`, chID)
+
+	// n 用于本次流程后续判断的n
+	n := New("cid", s, nil)
+	n.NotifyBuyerMessage("cid", "买家甲", "b1", "item1", "chat1", "在吗？")
+	if sent {
+		t.Error("未订阅 buyer_message 的渠道不应收到买家新消息")
+	}
+}
+
+// TestNotifyBuyerMessage_EmptyTextStillNotifies 图片等非文本消息正文为空时仍应提醒。
+func TestNotifyBuyerMessage_EmptyTextStillNotifies(t *testing.T) {
+	// s、cleanup 用于本次流程后续判断的s、cleanup
+	s, cleanup := newNotifyStore(t)
+	defer cleanup()
+	// ctx 用于本次流程后续判断的ctx
+	ctx := context.Background()
+
+	// gotBody 保存 webhook 收到的通知正文。
+	var gotBody string
+	// srv 用于本次流程后续判断的srv
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// b 用于本次流程后续判断的b
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	res, _ := s.DB.ExecContext(ctx,
+		`INSERT INTO notification_channels (name,type,config,enabled,user_id,event_types) VALUES ('测试','webhook',?,1,1,?)`,
+		`{"webhook_url":"`+srv.URL+`"}`, `["buyer_message"]`)
+	// chID 用于本次流程后续判断的chID
+	chID, _ := res.LastInsertId()
+	s.DB.ExecContext(ctx,
+		`INSERT INTO message_notifications (cookie_id,channel_id,enabled) VALUES ('cid',?,1)`, chID)
+
+	// n 用于本次流程后续判断的n
+	n := New("cid", s, nil)
+	n.NotifyBuyerMessage("cid", "买家甲", "b1", "item1", "chat1", "")
+	if gotBody == "" {
+		t.Fatal("非文本消息也应发送提醒")
+	}
+	if !contains(gotBody, "非文本消息") {
+		t.Errorf("非文本消息应使用占位文案: %s", gotBody)
+	}
+}
+
 // TestNotifyEvent_FiltersByChannelEventTypes 封装TestNotifyEventFiltersBy渠道EventTypes业务协调。
 func TestNotifyEvent_FiltersByChannelEventTypes(t *testing.T) {
 	// s、cleanup 用于本次流程后续判断的s、cleanup
