@@ -99,17 +99,21 @@ export const normalizeNotificationForm = (channel: NotificationChannel, smtp: Sy
 };
 
 // validateNotificationForm 校验渠道名称、渠道字段和独立 SMTP 必填项。
-export const validateNotificationForm = (form: NotificationForm): string => {
+// preserveConfig 为真时表示编辑场景下用户没有重新填写渠道配置，此时应保留服务端已存配置，
+// 因此跳过必填校验；否则编辑渠道会被迫重填密钥才能保存。
+export const validateNotificationForm = (form: NotificationForm, options?: { /** 是否保留服务端已存配置。 */ preserveConfig?: boolean }): string => {
   // meta 是当前渠道类型的静态校验配置。
   const meta = notificationChannelTypes[form.type];
   // 未知渠道类型必须返回可读错误：直接取 meta.fields 会抛异常，导致保存静默失败。
   if (!meta) return `不支持的渠道类型：${form.type}`;
-  // missingField 是第一个未填写的渠道必填字段。
-  const missingField = meta.fields.find(
-    // field 是当前渠道字段定义。
-    field => field.required && !String(form.config[field.key] || '').trim(),
-  );
-  if (missingField) return `请填写 ${missingField.label}`;
+  if (!options?.preserveConfig) {
+    // missingField 是第一个未填写的渠道必填字段。
+    const missingField = meta.fields.find(
+      // field 是当前渠道字段定义。
+      field => field.required && !String(form.config[field.key] || '').trim(),
+    );
+    if (missingField) return `请填写 ${missingField.label}`;
+  }
   if (!form.name.trim()) return '请填写渠道名称';
   if (form.type === 'email') {
     // config 是邮件渠道归一化后的提交配置。
@@ -132,12 +136,15 @@ export const validateNotificationForm = (form: NotificationForm): string => {
 };
 
 // buildNotificationPayload 将表单转换为通知渠道保存请求。
-export const buildNotificationPayload = (form: NotificationForm): NotificationPayload => ({
+// preserveConfig 为真时不下发 config，让后端保留已存配置；用于编辑时用户未重新填写配置的场景。
+export const buildNotificationPayload = (form: NotificationForm, options?: { /** 是否保留服务端已存配置。 */ preserveConfig?: boolean }): NotificationPayload => ({
   name: form.name.trim(),
   type: form.type,
   ...(form.type === 'email' && form.preserveSMTP
     ? { email_recipient: String(form.config.to_email ?? '').trim() }
-    : { config: form.type === 'email' ? buildEmailChannelConfig(form.config) : form.config }),
+    : options?.preserveConfig
+      ? {}
+      : { config: form.type === 'email' ? buildEmailChannelConfig(form.config) : form.config }),
   event_types: form.event_types,
   enabled: form.enabled,
 });

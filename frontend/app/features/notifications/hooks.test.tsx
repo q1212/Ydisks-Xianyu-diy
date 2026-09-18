@@ -120,6 +120,26 @@ describe('useNotifications', /* 当前回调处理通知渠道、SMTP 和动作�
     await act(/* releaseAction 结束挂起的保存请求。 */ async () => { releaseSave?.(); });
   });
 
+  test('编辑渠道且未改动配置时保留服务端已存配置', /* 当前回调验证只改事件订阅不会清空已存密钥。 */ async () => {
+    // editingChannel 还原列表接口的真实返回：渠道摘要刻意不包含任何配置。
+    const editingChannel: NotificationChannel = { id: 'channel-1', name: '测试渠道', type: 'bark', config: {}, event_types: ['system_error'], enabled: true };
+    // getChannelMock 返回脱敏编辑配置。
+    getChannelMock.mockResolvedValueOnce({ id: 1, name: '测试渠道', type: 'bark', enabled: true });
+    // hook 是编辑渠道场景的 Hook 渲染结果。
+    const hook = renderHook(/* editHookFactory 创建编辑渠道场景的 Hook。 */ () => useNotifications(false));
+    await waitFor(/* loadingAssertion 等待渠道摘要加载完成。 */ () => expect(hook.result.current.loading).toBe(false));
+
+    await act(/* editAction 打开渠道编辑表单。 */ async () => hook.result.current.openEdit(editingChannel));
+    // 不填写任何配置字段，直接保存。
+    await act(/* saveAction 提交只改订阅的保存请求。 */ async () => hook.result.current.handleSave());
+
+    // payload 是本次更新请求提交的字段集合。
+    const payload = updateChannelMock.mock.calls[0][1] as Record<string, unknown>;
+    // 必须省略 config：下发空配置会把服务端已存的 webhook 密钥清空。
+    expect(payload.config).toBeUndefined();
+    expect(payload.event_types).toBeDefined();
+  });
+
   test('编辑邮件渠道时回显服务端保存的收件邮箱', /* 当前回调验证编辑配置异步加载不会丢失收件地址。 */ async () => {
     // emailChannel 是编辑收件邮箱回显场景使用的渠道摘要。
     const emailChannel: NotificationChannel = { id: 'email-1', name: '邮件通知', type: 'email', config: {}, enabled: true, event_types: [] };

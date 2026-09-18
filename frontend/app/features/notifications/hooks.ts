@@ -224,10 +224,16 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
   const handleSave = useCallback(
     // 保存回调执行渠道校验、请求和成功刷新。
     async () => {
+    // preserveConfig 表示编辑渠道时用户没有重新填写配置：列表接口不返回配置，
+    // 此时应让后端保留已存配置，否则用户只想改事件订阅却被迫重填密钥。
+    const preserveConfig = Boolean(
+      editing && editing.type !== 'email' &&
+      Object.values(form.config).every(/* configValue 是当前配置项的值。 */ configValue => !String(configValue ?? '').trim()),
+    );
     // validationError 是渠道表单预检失败时的用户提示。
     let validationError = '';
     try {
-      validationError = validateNotificationForm(form);
+      validationError = validateNotificationForm(form, { preserveConfig });
     } catch (error: unknown /* 预检自身异常也必须给出可读提示，避免点击保存毫无反馈。 */) {
       showToast('error', notificationErrorMessage(error, '表单校验失败'));
       return;
@@ -247,7 +253,7 @@ export const useNotifications = (isAdmin: boolean): NotificationState => {
     setSaving(true);
     try {
       // payload 是后端渠道接口使用的规范化请求体。
-      const payload = buildNotificationPayload(form);
+      const payload = buildNotificationPayload(form, { preserveConfig });
       if (editing) {
         await updateNotificationChannel(editing.id, payload, { signal: controller.signal });
       } else {
