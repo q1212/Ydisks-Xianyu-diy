@@ -55,6 +55,11 @@ func (r *scriptedOutboxRepository) AccountChannels(context.Context, string) ([]d
 	return nil, nil
 }
 
+// AccountDisplayName 返回测试不使用的账号展示名。
+func (r *scriptedOutboxRepository) AccountDisplayName(context.Context, string) (string, error) {
+	return "", nil
+}
+
 // EnqueueOutbox 返回测试不使用的入队结果。
 func (r *scriptedOutboxRepository) EnqueueOutbox(context.Context, []db.NotificationOutboxInput) error {
 	return nil

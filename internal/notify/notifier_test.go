@@ -231,14 +231,20 @@ func TestNotifyBuyerMessage_SubscribedChannel(t *testing.T) {
 	s.DB.ExecContext(ctx,
 		`INSERT INTO message_notifications (cookie_id,channel_id,enabled) VALUES ('cid',?,1)`, chID)
 
+	// 设置账号备注，验证正文使用可读名称而不是内部 cookie_id。
+	s.DB.ExecContext(ctx, `UPDATE cookies SET remark=? WHERE id='cid'`, "924890929@qq.com")
+
 	// n 用于本次流程后续判断的n
 	n := New("cid", s, nil)
 	n.NotifyBuyerMessage("cid", "买家甲", "b1", "item1", "chat1", "在吗？")
 	if gotBody == "" {
 		t.Fatal("订阅买家新消息后应发送通知")
 	}
-	if !contains(gotBody, "买家甲") || !contains(gotBody, "在吗") {
-		t.Errorf("通知正文异常: %s", gotBody)
+	// 正文必须使用固定模板，便于在手机推送里一眼看清账号、买家与消息。
+	for _, want := range []string{"【闲鱼消息】", "闲鱼账号:", "发送者:", "买家甲", "消息:", "在吗", "924890929@qq.com"} {
+		if !contains(gotBody, want) {
+			t.Errorf("通知正文缺少 %q: %s", want, gotBody)
+		}
 	}
 }
 

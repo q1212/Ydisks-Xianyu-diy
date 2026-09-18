@@ -459,6 +459,27 @@ func (c *Cookies) GetValue(ctx context.Context, cookieID string) (string, error)
 	return c.codec.decrypt("cookie", cookieID, v)
 }
 
+// GetDisplayName 取账号用于通知展示的名称，不读取任何凭证明文。
+// 依次回退 备注 → 昵称 → 账号标识，保证调用方总能拿到可读文案。
+func (c *Cookies) GetDisplayName(ctx context.Context, cookieID string) (string, error) {
+	// name 保存备注或昵称中第一个非空值。
+	var name string
+	// err 保存账号不存在或查询失败的原因。
+	err := c.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(NULLIF(TRIM(COALESCE(remark,'')),''), NULLIF(TRIM(COALESCE(nickname,'')),''), '')
+		 FROM cookies WHERE id=?`, cookieID).Scan(&name)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	if strings.TrimSpace(name) == "" {
+		return cookieID, nil
+	}
+	return name, nil
+}
+
 // GetDetails 取账号完整详情。不存在返回 ErrNotFound。
 func (c *Cookies) GetDetails(ctx context.Context, cookieID string) (*CookieDetail, error) {
 	// d 用于本次流程后续判断的d

@@ -58,6 +58,8 @@ type NotificationEvent struct {
 	Body      string
 	Fields    map[string]string
 	Time      time.Time
+	// RawBody 非空时完全接管正文渲染，用于需要固定模板的通知类型；此时 Fields 与 Body 都不参与拼接。
+	RawBody string
 	// SubscriptionFallbackTypes 保存兼容旧订阅配置的候选类别；只参与渠道过滤，不改变实际入队类别和通知展示。
 	SubscriptionFallbackTypes []string
 }
@@ -171,32 +173,37 @@ func (n *Notifier) NotifyDelivery(accountID, buyerName, buyerID, itemID, message
 
 // NotifyBuyerMessage 发送买家新消息通知。
 // accountID 为 cookie_id。只推送给订阅了 buyer_message 的已启用渠道。
+// 正文使用固定模板，便于在手机推送里一眼看清是哪个账号收到了谁的消息。
 // 调用方应只在消息确实是首次入库时调用，避免平台重投或回放造成重复提醒。
 func (n *Notifier) NotifyBuyerMessage(accountID, buyerName, buyerID, itemID, chatID, text string) {
 	if n == nil {
 		return
 	}
 	// 图片等非文本消息正文为空，用占位文案保证提醒仍然可见，不因空正文而漏报。
-	body := strings.TrimSpace(text)
-	if body == "" {
-		body = "[非文本消息]"
+	message := strings.TrimSpace(text)
+	if message == "" {
+		message = "[非文本消息]"
 	}
 	// notificationCtx、notificationCancel 为兼容入口限制 outbox 入队预算，避免聊天链路产生无主数据库操作。
 	notificationCtx, notificationCancel := context.WithTimeout(context.Background(), legacyNotifierOperationTimeout)
 	defer notificationCancel()
-	n.NotifyEvent(notificationCtx, NotificationEvent{
+	// accountName 优先取账号备注或昵称，查询失败时回退账号标识，保证正文始终可读。
+	accountName := accountID
+	if n.repository != nil {
+		if resolved, err := n.repository.AccountDisplayName(notificationCtx, accountID); err == nil && strings.TrimSpace(resolved) != "" {
+			accountName = resolved
+		}
+	}
+	// senderName 优先取买家昵称，缺失时回退买家标识。
+	senderName := fallback(buyerName, buyerID)
+	n.notifyEvent(notificationCtx, NotificationEvent{
 		AccountID: accountID,
 		Type:      EventBuyerMessage,
 		Level:     "info",
 		Title:     "收到买家新消息",
-		Body:      body,
-		Fields: map[string]string{
-			"买家":   fmt.Sprintf("%s (ID: %s)", buyerName, buyerID),
-			"商品ID": itemID,
-			"聊天ID": fallback(chatID, "未知"),
-			"消息":   body,
-		},
-	})
+		RawBody: fmt.Sprintf("【闲鱼消息】\n闲鱼账号: %s（我自己账号）\n发送者: %s（买家昵称）\n消息: %s",
+			accountName, senderName, message),
+	}, "")
 }
 
 // NotifyAutomationRun 将一个自动化运行的终态通知持久化到 outbox。
@@ -602,6 +609,10 @@ func classifyAccountAlertEvent(title, body string) string {
 
 // formatEvent 封装formatEvent业务协调。
 func formatEvent(ev NotificationEvent) string {
+	// RawBody 让需要固定模板的事件完全接管正文，不再拼接类型/账号/时间等通用字段。
+	if raw := strings.TrimSpace(ev.RawBody); raw != "" {
+		return raw
+	}
 	// b 用于本次流程后续判断的b
 	var b strings.Builder
 	// label 用于本次流程后续判断的label

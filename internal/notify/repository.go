@@ -12,6 +12,8 @@ import (
 type Repository interface {
 	// AccountChannels 返回账号当前绑定的通知渠道。
 	AccountChannels(ctx context.Context, cookieID string) ([]db.NotificationChannel, error)
+	// AccountDisplayName 返回账号用于通知展示的名称；不读取凭证明文。
+	AccountDisplayName(ctx context.Context, cookieID string) (string, error)
 	// EnqueueOutbox 将待发送通知追加到持久化 outbox。
 	EnqueueOutbox(ctx context.Context, messages []db.NotificationOutboxInput) error
 	// ClaimOutbox 抢占一批可发送的 outbox 消息。
@@ -45,6 +47,11 @@ type storeRepository struct {
 // AccountChannels 委托账号通知渠道查询。
 func (r storeRepository) AccountChannels(ctx context.Context, cookieID string) ([]db.NotificationChannel, error) {
 	return r.store.Notifications.AccountChannels(ctx, cookieID)
+}
+
+// AccountDisplayName 委托账号展示名查询，只读备注与昵称，不触碰凭证明文。
+func (r storeRepository) AccountDisplayName(ctx context.Context, cookieID string) (string, error) {
+	return r.store.Cookies.GetDisplayName(ctx, cookieID)
 }
 
 // EnqueueOutbox 委托通知 outbox 写入。
